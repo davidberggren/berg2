@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <title>Jobbschema</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background-color: #f0f0f0;
+      padding: 2em;
+      max-width: 600px;
+      margin: auto;
+    }
+    h1 {
+      color: #333;
+    }
+    input, button {
+      padding: 0.5em;
+      font-size: 1em;
+      margin-top: 1em;
+    }
+    #resultat {
+      margin-top: 2em;
+      font-size: 1.2em;
+      font-weight: bold;
+      background-color: #fff;
+      padding: 1em;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Jobbar David?</h1>
+  <label for="datum">Välj ett datum:</label><br>
+  <input type="date" id="datum"><br>
+  <button onclick="kollaSchema()">Kolla schema</button>
+
+  <div id="resultat"></div>
+
+  <script>
+    const schema = {
+      1: ["Dag", "Kväll", "Kväll", "Kväll", "Ledig", "Dag", "Dag"],
+      2: ["Ledig", "Ledig", "Dag", "Dag", "Dag", "Ledig", "Ledig"],
+      3: ["Dag", "Dag", "Dag", "Ledig", "Kväll", "Kväll", "Kväll"],
+      4: ["Ledig", "Dag", "Dag", "Dag", "Dag", "Ledig", "Ledig"]
+    };
+
+    const startDatum = new Date("2025-07-21"); // Vecka 1 start
+
+    function kollaSchema() {
+      const input = document.getElementById("datum").value;
+      const resultatDiv = document.getElementById("resultat");
+
+      if (!input) {
+        resultatDiv.innerText = "Välj ett datum först.";
+        return;
+      }
+
+      const valtDatum = new Date(input);
+      const skillnadTid = valtDatum - startDatum;
+      const skillnadDagar = Math.floor(skillnadTid / (1000 * 60 * 60 * 24));
+
+      if (skillnadDagar < 0) {
+        resultatDiv.innerText = "Datumet är före schemastarten.";
+        return;
+      }
+
+      const veckaRotation = (Math.floor(skillnadDagar / 7) % 4) + 1;
+      const veckodag = valtDatum.getDay(); // 0 = Söndag, 1 = Måndag, ...
+      const index = veckodag === 0 ? 6 : veckodag - 1;
+
+      const pass = schema[veckaRotation][index];
+      const veckodagar = ["Måndag", "Tisdag", "Onsdag", "Torsdag", "Fredag", "Lördag", "Söndag"];
+      const veckodagNamn = veckodagar[index];
+
+      resultatDiv.innerHTML = `
+        Datum: <strong>${valtDatum.toLocaleDateString("sv-SE")}</strong><br>
+        Veckodag: <strong>${veckodagNamn}</strong><br>
+        Vecka i rotationen: <strong>${veckaRotation}</strong><br>
+        Schema: <strong>${pass}</strong>
+      `;
+    }
+  </script>
+
+</body>
+</html>
