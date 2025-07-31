@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8" />
+  <title>Matningslista för barnet</title>
+  <style>
+    body {
+      background-color: #ADD8E6;
+      font-family: 'Times New Roman', Times, serif;
+      margin: 20px;
+      color: #000;
+    }
+    form {
+      margin-bottom: 20px;
+    }
+    label, input {
+      font-size: 1rem;
+    }
+    input[type="number"], input[type="time"], input[type="date"] {
+      padding: 5px;
+      margin-right: 10px;
+      font-size: 1rem;
+      width: 130px;
+    }
+    button {
+      padding: 6px 12px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+
+    .container {
+      display: flex;
+      gap: 40px;
+      flex-wrap: wrap;
+    }
+
+    ul {
+      padding-left: 0;
+      list-style: none;
+    }
+
+    .list-section {
+      flex: 1;
+      min-width: 300px;
+    }
+
+    .list-section h2 {
+      margin-bottom: 10px;
+    }
+
+    li {
+      background: #e0f0ff;
+      margin-bottom: 8px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-weight: bold;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .delete-btn {
+      background-color: #ff5c5c;
+      border: none;
+      color: white;
+      border-radius: 4px;
+      padding: 4px 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+
+    .delete-btn:hover {
+      background-color: #ff1a1a;
+    }
+  </style>
+</head>
+<body>
+  <h1>Matningslista för barnet</h1>
+
+  <form id="feedingForm">
+    <label for="date">Datum:</label>
+    <input type="date" id="date" name="date" required />
+
+    <label for="time">Klockslag:</label>
+    <input type="time" id="time" name="time" required />
+
+    <label for="amount">Antal ml:</label>
+    <input type="number" id="amount" name="amount" min="1" required />
+
+    <button type="submit">Lägg till</button>
+  </form>
+
+  <div class="container">
+    <div class="list-section">
+      <h2>Individuella matningar</h2>
+      <ul id="feedingList"></ul>
+    </div>
+
+    <div class="list-section">
+      <h2>Totalsumma per dag</h2>
+      <ul id="dailySummary"></ul>
+    </div>
+
+    <div class="list-section">
+      <h2>Totalsumma per vecka</h2>
+      <ul id="weeklySummary"></ul>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('feedingForm');
+    const feedingList = document.getElementById('feedingList');
+    const dailySummary = document.getElementById('dailySummary');
+    const weeklySummary = document.getElementById('weeklySummary');
+    const STORAGE_KEY = 'feedingRecords';
+
+    function renderAll() {
+      feedingList.innerHTML = '';
+      dailySummary.innerHTML = '';
+      weeklySummary.innerHTML = '';
+
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (!saved) return;
+
+      let records = JSON.parse(saved);
+
+      // Sortera poster (nyast först)
+      records.sort((a, b) => {
+        const dateA = new Date(a.date + 'T' + a.time);
+        const dateB = new Date(b.date + 'T' + b.time);
+        return dateB - dateA;
+      });
+
+      records.forEach(r => {
+        addFeedingItem(r.date, r.time, r.amount);
+      });
+
+      renderSummary(records);
+      renderWeeklySummary(records);
+    }
+
+    function addFeedingItem(date, time, amount) {
+      const li = document.createElement('li');
+
+      const span = document.createElement('span');
+      span.textContent = `${date} ${time} – ${amount} ml`;
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.textContent = 'Radera';
+      deleteBtn.className = 'delete-btn';
+
+      deleteBtn.addEventListener('click', () => {
+        removeRecord(date, time, amount);
+        renderAll();
+      });
+
+      li.appendChild(span);
+      li.appendChild(deleteBtn);
+      feedingList.appendChild(li);
+    }
+
+    function renderSummary(records) {
+      const totals = {};
+      for (const r of records) {
+        if (!totals[r.date]) totals[r.date] = 0;
+        totals[r.date] += parseInt(r.amount);
+      }
+
+      const sortedDates = Object.keys(totals).sort((a, b) => new Date(b) - new Date(a));
+
+      sortedDates.forEach(date => {
+        const li = document.createElement('li');
+        li.textContent = `${date} – ${totals[date]} ml`;
+        dailySummary.appendChild(li);
+      });
+    }
+
+    function renderWeeklySummary(records) {
+      const weeklyTotals = {};
+
+      function getISOWeekYear(dateStr) {
+        const d = new Date(dateStr);
+        d.setUTCHours(0, 0, 0, 0);
+        d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+        const yearStart = new Date(Date.UTC(d.getFullYear(), 0, 1));
+        const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+        return `${d.getFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+      }
+
+      records.forEach(r => {
+        const key = getISOWeekYear(r.date);
+        if (!weeklyTotals[key]) weeklyTotals[key] = 0;
+        weeklyTotals[key] += parseInt(r.amount);
+      });
+
+      const sortedWeeks = Object.keys(weeklyTotals).sort((a, b) => b.localeCompare(a));
+
+      sortedWeeks.forEach(key => {
+        const [year, week] = key.split('-W');
+        const li = document.createElement('li');
+        li.textContent = `${year} – Vecka ${week} – ${weeklyTotals[key]} ml`;
+        weeklySummary.appendChild(li);
+      });
+    }
+
+    function saveRecord(date, time, amount) {
+      let records = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+      records.push({ date, time, amount });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    }
+
+    function removeRecord(date, time, amount) {
+      let records = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+      records = records.filter(r => !(r.date === date && r.time === time && r.amount === amount));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    }
+
+    form.addEventListener('submit', event => {
+      event.preventDefault();
+
+      const date = document.getElementById('date').value;
+      const time = document.getElementById('time').value;
+      const amount = document.getElementById('amount').value;
+
+      if (!date || !time || !amount) {
+        alert('Fyll i alla fält!');
+        return;
+      }
+
+      saveRecord(date, time, amount);
+      form.reset();
+      renderAll();
+    });
+
+    renderAll();
+  </script>
+</body>
+</html>
